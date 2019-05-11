@@ -1,0 +1,53 @@
+notifications:
+  email: false
+git:
+  quiet: true
+  depth: 1
+jdk: openjdk8
+language: java
+install: true
+addons:
+  apt:
+    packages:
+      - bash
+      - curl
+      - jq
+before_install:
+  # jbake
+  - curl -s "https://get.sdkman.io" | bash
+  - mkdir -p "$HOME/.sdkman/etc"
+  - touch "$HOME/.sdkman/etc/config"
+  - sed -i -e 's/^sdkman_auto_answer=false$/sdkman_auto_answer=true/g' "$HOME/.sdkman/etc/config"
+  - source "$HOME/.sdkman/bin/sdkman-init.sh"
+  - sdk use jbake
+  - source "$HOME/.sdkman/bin/sdkman-init.sh"
+  # e2e
+  - export CHROME_BIN=/usr/bin/google-chrome
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
+  # stop / kill
+  - sudo pip install docker-compose httpie >/dev/null 2>&1
+  - source <(curl -s https://raw.githubusercontent.com/daggerok/bash-functions/master/main.bash)
+  - stop_any 80 8001 8002 8080 5432
+script:
+  - jbake -b
+  - jbake -s &
+  - sleep 3s
+  - curl http://127.0.0.1:8820/
+  - stop_any 8820
+cache:
+  packages: true
+  directories:
+    - $HOME/.sdkman
+before_deploy:
+  - rm -rf output
+  - jbake -b
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: "$GITHUB_TOKEN"
+  keep-history: true
+  on:
+    branch: master
+  local-dir: output
+  target_branch: gh-pages
